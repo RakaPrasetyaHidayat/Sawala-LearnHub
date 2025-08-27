@@ -16,10 +16,7 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
-    "noFallthroughCasesInSwitch": false,
-    "paths": {
-      "@/*": ["src/*"],
-      "@common/*": ["src/common/*"]
-    }
-  }
+    "noFallthroughCasesInSwitch": false
+  },
+  "extends": "./tsconfig.paths.json"
 }

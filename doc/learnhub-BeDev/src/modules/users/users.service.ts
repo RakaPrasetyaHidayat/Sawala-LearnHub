@@ -4,8 +4,8 @@ import {
   UnauthorizedException,
   BadRequestException,
 } from '@nestjs/common';
-import { SupabaseService } from '@/infra/supabase/supabase.service';
-import { UserRole, UserStatus } from '@/common/enums';
+import { SupabaseService } from '../../infra/supabase/supabase.service';
+import { UserRole, UserStatus } from '../../common/enums';
 import { UpdateUserStatusDto, SearchUsersDto } from './dto/user.dto';
 
 @Injectable()

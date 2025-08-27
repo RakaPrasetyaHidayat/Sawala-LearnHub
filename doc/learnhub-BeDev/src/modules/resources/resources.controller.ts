@@ -4,17 +4,50 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { CreateResourceDto } from './dto/resource.dto';
 
-@Controller('resources')
+@Controller('api/resources')
 @UseGuards(JwtAuthGuard)
 export class ResourcesController {
   constructor(private readonly resourcesService: ResourcesService) {}
 
+  @Get()
+  async getResourcesInfo() {
+    return {
+      status: 'success',
+      message: 'Resources API endpoints information',
+      data: {
+        description: 'Endpoints for managing learning resources',
+        endpoints: {
+          getResources: {
+            method: 'GET',
+            url: '/api/resources',
+            description: 'Get list of resources'
+          },
+          createResource: {
+            method: 'POST',
+            url: '/api/resources',
+            description: 'Create a new resource'
+          },
+          getByYear: {
+            method: 'GET',
+            url: '/api/resources/year/:year',
+            description: 'Get resources by year'
+          }
+        }
+      }
+    };
+  }
+
   @Post()
-  createResource(
+  async createResource(
     @Body() createResourceDto: CreateResourceDto,
     @GetUser('id') userId: string,
   ) {
-    return this.resourcesService.createResource(createResourceDto, userId);
+    const resource = await this.resourcesService.createResource(createResourceDto, userId);
+    return {
+      status: 'success',
+      message: 'Resource created successfully',
+      data: resource
+    };
   }
 
   @Get('year/:year')

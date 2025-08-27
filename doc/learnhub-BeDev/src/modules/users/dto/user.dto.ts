@@ -1,5 +1,5 @@
 import { IsEmail, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
-import { UserRole, UserStatus } from '@common/enums';
+import { UserRole, UserStatus } from '../../../common/enums';
 
 export class UpdateUserStatusDto {
   @IsEnum(UserStatus)

@@ -1,23 +1,40 @@
+import 'module-alias/register';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  console.log('🔥 BOOTSTRAP STARTED - This should appear!');
-  
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  console.log('🔥 APP CREATED - NestJS app instance created!');
-
-  // Enable CORS
+  // Configure CORS
   app.enableCors({
-    origin: process.env.FRONTEND_URL || '*',
+    origin: ['http://localhost:3000', 'https://learnhub-be-dev.vercel.app'],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    exposedHeaders: ['Authorization'],
   });
-
   console.log('🔥 CORS ENABLED');
 
-  // Global validation pipe
+  // Tidak menggunakan global prefix (biar root / bisa diakses langsung di Vercel)
+  // Jika ingin prefix /api, gunakan: app.setGlobalPrefix('api');
+  console.log('🔥 Global prefix removed for Vercel compatibility');
+
+  // Configure Swagger (tetap diakses di /api/docs)
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('LearnHub API')
+    .setDescription('The LearnHub API Documentation')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+
+  const swaggerDoc = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, swaggerDoc);
+  console.log('🔥 SWAGGER DOCUMENTATION SETUP AT: /api/docs');
+
+  // Configure Validation Pipe
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -25,49 +42,29 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-
   console.log('🔥 VALIDATION PIPE CONFIGURED');
 
-  // Try different ports if the default is in use
-  const preferredPort = process.env.PORT || 3000;
-  let port = parseInt(preferredPort.toString());
-  
-  console.log('🔥 PREFERRED PORT:', port);
-
-  // Try to start the server, if port is in use, try next port
-  let attempts = 0;
-  const maxAttempts = 5;
-
-  while (attempts < maxAttempts) {
-    try {
-      console.log(`🔥 ATTEMPTING TO LISTEN ON PORT: ${port}`);
-      await app.listen(port);
-      break; // Success, exit the loop
-    } catch (error) {
-      if (error.code === 'EADDRINUSE') {
-        console.log(`⚠️  Port ${port} is in use, trying port ${port + 1}`);
-        port++;
-        attempts++;
-      } else {
-        throw error; // Re-throw if it's not a port conflict
-      }
-    }
-  }
-
-  if (attempts >= maxAttempts) {
-    throw new Error(`Could not find an available port after ${maxAttempts} attempts`);
-  }
-  
-  console.log('🚀 APPLICATION IS RUNNING ON: http://localhost:' + port);
-  console.log('💚 HEALTH CHECK: http://localhost:' + port + '/health');
-  console.log('🔍 ROOT ENDPOINT: http://localhost:' + port + '/');
-  console.log('👥 USERS ENDPOINT: http://localhost:' + port + '/users');
-  console.log('🔐 AUTH ENDPOINT: http://localhost:' + port + '/auth');
-  console.log('🌟 ENVIRONMENT:', process.env.NODE_ENV || 'development');
-  console.log('🔥 BOOTSTRAP COMPLETED SUCCESSFULLY!');
+  return app;
 }
 
-bootstrap().catch((error) => {
-  console.error('❌ BOOTSTRAP ERROR:', error);
-  process.exit(1);
-});
+// Jika dijalankan secara lokal (node dist/main.js)
+if (require.main === module) {
+  bootstrap()
+    .then(async (app) => {
+      const port = process.env.PORT || 3000;
+      await app.listen(port);
+      console.log(`🚀 Application is running on port ${port}`);
+      console.log('📋 Available endpoints:');
+      console.log('  GET  /              (AppController root JSON)');
+      console.log('  GET  /api/health    (Health check)');
+      console.log('  GET  /api/stats     (Stats endpoint)');
+      console.log('  GET  /api/docs      (Swagger Documentation)');
+    })
+    .catch((error) => {
+      console.error('❌ BOOTSTRAP ERROR:', error);
+      process.exit(1);
+    });
+}
+
+// Export untuk Vercel serverless
+export default bootstrap;

@@ -1,18 +1,27 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { QueryOptions, StorageOptions, SupabaseConfig } from './supabase.types';
+import { QueryOptions, StorageOptions } from './supabase.types';
 
 @Injectable()
 export class SupabaseService {
   private client: SupabaseClient;
   private adminClient: SupabaseClient;
 
-  constructor(@Inject('ENV') private readonly env: SupabaseConfig) {
+  constructor(private configService: ConfigService) {
+    const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
+    const supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY');
+    const supabaseServiceRoleKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+      throw new Error('Missing Supabase configuration');
+    }
+
     // Regular client with anon key for normal operations
-    this.client = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+    this.client = createClient(supabaseUrl, supabaseAnonKey);
     
     // Admin client with service role key for admin operations
-    this.adminClient = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    this.adminClient = createClient(supabaseUrl, supabaseServiceRoleKey);
   }
 
   getClient(useAdmin = false) {

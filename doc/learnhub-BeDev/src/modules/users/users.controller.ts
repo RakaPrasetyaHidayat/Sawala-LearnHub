@@ -9,11 +9,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
-import { Roles } from '@/modules/auth/decorators/roles.decorator';
-import { UserRole, UserStatus } from '@/common/enums';
-import { RolesGuard } from '@/modules/auth/guards/roles.guard';
-import { GetUser } from '@/modules/auth/decorators/get-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole, UserStatus } from '../../common/enums';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { GetUser } from '../auth/decorators/get-user.decorator';
 import { UpdateUserStatusDto, SearchUsersDto } from './dto/user.dto';
 
 @Controller('users')

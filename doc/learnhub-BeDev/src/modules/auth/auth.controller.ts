@@ -4,9 +4,42 @@ import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './dt
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GetUser } from './decorators/get-user.decorator';
 
-@Controller('auth')
+@Controller('api/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Get()
+  async getAuthInfo() {
+    return {
+      status: 'success',
+      message: 'Auth endpoints information',
+      data: {
+        description: 'Authentication and authorization endpoints',
+        endpoints: {
+          register: {
+            method: 'POST',
+            url: '/api/auth/register',
+            description: 'Register a new user'
+          },
+          login: {
+            method: 'POST',
+            url: '/api/auth/login',
+            description: 'Login with credentials'
+          },
+          forgotPassword: {
+            method: 'POST',
+            url: '/api/auth/forgot-password',
+            description: 'Request password reset'
+          },
+          resetPassword: {
+            method: 'POST',
+            url: '/api/auth/reset-password',
+            description: 'Reset password with token'
+          }
+        }
+      }
+    };
+  }
 
   @Post('register')
   register(@Body() registerDto: RegisterDto) {

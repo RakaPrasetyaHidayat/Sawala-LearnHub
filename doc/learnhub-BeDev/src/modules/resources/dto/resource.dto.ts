@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsString, IsEnum, IsNumber, IsUrl } from 'class-validator';
-import { ResourceType } from '@common/enums';
+import { ResourceType } from '../../../common/enums';
 
 export class CreateResourceDto {
   @IsString()

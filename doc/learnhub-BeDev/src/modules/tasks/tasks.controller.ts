@@ -4,7 +4,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { UserRole } from '@common/enums';
+import { UserRole } from '../../common/enums';
 import { CreateTaskDto, SubmitTaskDto, UpdateTaskDto } from './dto/task.dto';
 
 @Controller('tasks')

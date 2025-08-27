@@ -1,9 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { SupabaseService } from '@/infra/supabase/supabase.service';
+import { SupabaseService } from '../../infra/supabase/supabase.service';
 import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
-import { UserStatus } from '@/common/enums';
+import { UserStatus } from '../../common/enums';
 
 @Injectable()
 export class AuthService {

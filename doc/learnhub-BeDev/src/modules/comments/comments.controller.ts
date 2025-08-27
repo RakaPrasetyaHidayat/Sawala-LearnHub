@@ -4,18 +4,46 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { CreateCommentDto } from './dto/comment.dto';
 
-@Controller('comments')
+@Controller('api/comments')
 @UseGuards(JwtAuthGuard)
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
+  @Get()
+  async getCommentsInfo() {
+    return {
+      status: 'success',
+      message: 'Comments API endpoints information',
+      data: {
+        description: 'Endpoints for managing comments on posts and resources',
+        endpoints: {
+          getComments: {
+            method: 'GET',
+            url: '/api/comments',
+            description: 'Get list of comments'
+          },
+          createComment: {
+            method: 'POST',
+            url: '/api/comments/posts/:postId',
+            description: 'Create a new comment on a post'
+          }
+        }
+      }
+    };
+  }
+
   @Post('posts/:postId')
-  createPostComment(
+  async createPostComment(
     @Param('postId') postId: string,
     @GetUser('id') userId: string,
     @Body() createCommentDto: CreateCommentDto,
   ) {
-    return this.commentsService.createComment(postId, userId, createCommentDto);
+    const comment = await this.commentsService.createComment(postId, userId, createCommentDto);
+    return {
+      status: 'success',
+      message: 'Comment created successfully',
+      data: comment
+    };
   }
 
   @Get('posts/:postId')
