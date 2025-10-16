@@ -3,6 +3,7 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
+import Image from "next/image";
 
 type TaskSuccessProps = {
   taskTitle?: string;
@@ -13,21 +14,21 @@ type TaskSuccessProps = {
 };
 
 export default function TaskSuccess({
-  taskTitle = "Pre Test 1 for All Intern",
+  taskTitle,
   onViewSubmission,
   onNewSubmission,
   onBack,
   className = "",
 }: TaskSuccessProps) {
   return (
-    <div className={`w-full min-h-screen bg-gray-50 ${className}`}>
+    <div className={`w-full min-h-screen ${className}`}>
       {/* Header */}
       <div className="bg-white px-4 py-3 flex items-center gap-3 border-b">
         <button
           onClick={onBack}
           className="p-1 hover:bg-gray-100 rounded-md transition-colors"
         >
-          <ArrowLeft size={20} className="text-gray-600" />
+          <ArrowLeft size={20} className="text-gray-600" onClick={onBack}  />
         </button>
         <h1 className="text-base font-medium text-gray-900">Detail Task</h1>
       </div>
@@ -37,7 +38,7 @@ export default function TaskSuccess({
         {/* Success Illustration */}
         <div className="mb-6">
           <img
-            src="https://images.unsplash.com/photo-1567473030492-533b30c5494c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTAwNDR8MHwxfHNlYXJjaHwyfHxwZXJzb24lMjBjaGVja2xpc3QlMjBkb2N1bWVudCUyMGNoZWNrbWFyayUyMHN1Y2Nlc3N8ZW58MHwyfHxibHVlfDE3NTgxODA5NzF8MA&ixlib=rb-4.1.0&q=85"
+            src="/assets/images/illustration.png"
             alt="Professional illustration of a person standing next to a checklist or document with checkmarks, representing task completion and success - erica steeves on Unsplash"
             width={200}
             height={200}
@@ -52,12 +53,12 @@ export default function TaskSuccess({
 
         {/* Task Details */}
         <div className="mb-6">
-          <p className="text-sm text-gray-600 mb-2">{taskTitle}</p>
+          <p className="text-lg text-black font-semibold mb-2">{taskTitle}</p>
           <div className="flex items-center justify-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <div className=""><Image src="/assets/icons/submitted.png" alt="check-circle" width={20} height={20} /></div>
             <Badge
               variant="secondary"
-              className="bg-green-100 text-green-700 border-green-200"
+              className="text-blue-600"
             >
               Submitted
             </Badge>
