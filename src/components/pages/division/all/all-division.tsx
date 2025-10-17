@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import NavigationBar from "@/components/molecules/navigationbar/navigationbar";
 import UserCard from "@/components/molecules/cards/user-card/user-card";
@@ -9,6 +9,7 @@ import TasksSection from "@/components/pages/division/all/tasks-section";
 import { Resource as Resources } from "@/components/organisms/resources/resources";
 import { useDivisionMembers } from "@/hooks/useDivisionMembers";
 import { useDivisionTasks } from "@/hooks/useDivisionTasks";
+import { getAuthState } from "@/utils/auth";
 
 export default function AllDivision({
   imageSrc = "/assets/images/download.png",
@@ -17,11 +18,22 @@ export default function AllDivision({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [tab, setTab] = useState("people");
+  const [role, setRole] = useState<"admin" | "user" | null>(null);
   const items = [
     { key: "people", label: "People" },
     { key: "tasks", label: "Tasks" },
     { key: "resources", label: "Resources" },
   ];
+
+  useEffect(() => {
+    try {
+      const { user } = getAuthState();
+      const nextRole = user?.role === "admin" ? "admin" : "user";
+      setRole(nextRole);
+    } catch {
+      setRole("user");
+    }
+  }, []);
 
   const yearParam = searchParams.get("year") || undefined;
   const { members, loading, error } = useDivisionMembers("all", yearParam);
@@ -30,6 +42,14 @@ export default function AllDivision({
     loading: tasksLoading,
     error: tasksError,
   } = useDivisionTasks("all", yearParam);
+
+  const handleViewDetail = (taskId: string | number) => {
+    if (role === "admin") {
+      router.push("/admin/DetailTaskAdmin");
+      return;
+    }
+    router.push(`/main-Page/about/division-of/detail-task/${String(taskId)}`);
+  };
 
   const peopleSection = useMemo(() => {
     if (loading)
@@ -101,11 +121,7 @@ export default function AllDivision({
             {!tasksLoading && !tasksError && (
               <TasksSection
                 tasks={tasks}
-                onViewDetail={(taskId) =>
-                  router.push(
-                    `/main-Page/about/division-of/detail-task/${taskId}`
-                  )
-                }
+                onViewDetail={handleViewDetail}
                 emptyMessage="Tidak ada tugas untuk tahun ini."
               />
             )}
