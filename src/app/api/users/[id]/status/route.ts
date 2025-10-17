@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthToken } from "@/services/fetcher";
+import { getServerSupabase } from "@/utils/supabaseServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +13,7 @@ function extractMessage(data: unknown): string | undefined {
   return undefined;
 }
 
+// Accept both PUT and PATCH for convenience (normalize to the same handler)
 export async function PUT(request: NextRequest, context: any) {
   try {
     const params = context?.params || {};
@@ -25,21 +26,73 @@ export async function PUT(request: NextRequest, context: any) {
     }
 
     const body = await request.json().catch(() => null);
-    const { status } = body || {};
+    const rawStatus = (body?.status ?? body?.user_status ?? body?.Status) as
+      | string
+      | undefined;
 
-    if (!status) {
+    // Also accept role in the body if provided
+    const rawRole = (body?.role ?? body?.Role) as string | undefined;
+
+    if (!rawStatus) {
       return NextResponse.json(
         { status: "error", message: "Status is required" },
         { status: 400 }
       );
     }
 
+    // Normalisasi status: terima uppercase/lowercase, map ke kolom "status" dan "user_status"
+    const normalized = String(rawStatus).trim().toUpperCase();
+
+    // 1) Coba update langsung ke Supabase (tabel public.users)
+    const supabase = getServerSupabase();
+    if (supabase) {
+      // Deteksi apakah kolom bernama user_status atau status
+      // Kita coba update keduanya untuk kompatibilitas skema
+      const updates: Record<string, any> = {
+        status: normalized,
+        user_status: normalized,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Pastikan user ada dulu
+      const { data: existing, error: selErr } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id", userId)
+        .single();
+
+      if (selErr || !existing) {
+        // Jika tidak ada, kembalikan 404 agar terlihat jelas di Postman
+        return NextResponse.json(
+          { status: "error", message: "User not found" },
+          { status: 404 }
+        );
+      }
+
+      const { data: upd, error: updErr } = await supabase
+        .from("users")
+        .update(updates)
+        .eq("id", userId)
+        .select()
+        .single();
+
+      if (!updErr) {
+        return NextResponse.json(
+          { status: "success", data: upd },
+          { status: 200 }
+        );
+      }
+      // Jika gagal, lanjutkan ke proxy backend di bawah
+    }
+
+    // 2) Fallback: proxy ke backend lama jika service role tidak dikonfigurasi
     const base = process.env.NEXT_PUBLIC_API_BASE_URL || "";
     if (!base) {
       return NextResponse.json(
         {
           status: "error",
-          message: "Missing NEXT_PUBLIC_API_BASE_URL on server",
+          message:
+            "Missing NEXT_PUBLIC_API_BASE_URL or SUPABASE_SERVICE_ROLE_KEY on server",
         },
         { status: 500 }
       );
@@ -47,52 +100,62 @@ export async function PUT(request: NextRequest, context: any) {
 
     const start = Date.now();
 
-    // Try different endpoint variations for updating user status
+    // Prefer PATCH method for backend endpoints (some backends expect PATCH)
     const attempts: Array<{
-      method: "PUT";
+      method: "PATCH" | "PUT";
       url: string;
       headers: Record<string, string>;
       body: string;
     }> = [
       {
-        method: "PUT",
+        method: "PATCH",
         url: `${base}/api/users/${userId}/status`,
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(rawRole ? { status: normalized, role: rawRole } : { status: normalized }),
       },
+      // Some backends accept PATCH on /users/:id without /status
       {
-        method: "PUT",
-        url: `${base}/users/${userId}/status`,
+        method: "PATCH",
+        url: `${base}/users/${userId}`,
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(rawRole ? { status: normalized, role: rawRole } : { status: normalized }),
       },
       {
-        method: "PUT",
+        method: "PATCH",
+        url: `${base}/api/users/${userId}`,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(rawRole ? { status: normalized, role: rawRole } : { status: normalized }),
+      },
+      {
+        method: "PATCH",
         url: `${base}/api/users/pending/${userId}/status`,
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(rawRole ? { status: normalized, role: rawRole } : { status: normalized }),
       },
       {
-        method: "PUT",
+        method: "PATCH",
         url: `${base}/v1/users/${userId}/status`,
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(rawRole ? { status: normalized, role: rawRole } : { status: normalized }),
       },
     ];
 
-    // Get authorization header from the incoming request
+    // Forward Authorization header jika ada
     const authHeader = request.headers.get("authorization");
     if (authHeader) {
       attempts.forEach((attempt) => {
@@ -115,7 +178,7 @@ export async function PUT(request: NextRequest, context: any) {
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const safePath = attempt.url.replace(/^https?:\/\/[^/]+/i, "");
-      tried.push(`PUT ${safePath}`);
+  tried.push(`${attempt.method} ${safePath}`);
 
       try {
         backendRes = await fetch(attempt.url, {
