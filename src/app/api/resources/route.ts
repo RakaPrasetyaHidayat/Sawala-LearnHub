@@ -72,10 +72,10 @@ export async function POST(request: Request) {
     } else if (reqCt.includes("multipart/form-data")) {
       // Rebuild FormData to let fetch set the correct boundary automatically
       const incomingForm = await request.formData().catch(() => null);
+      console.log("resources proxy incoming form", incomingForm ? Array.from(incomingForm.entries()) : null);
       const forwardForm = new FormData();
       if (incomingForm) {
         for (const [key, value] of incomingForm.entries()) {
-          // value can be string or File/Blob
           forwardForm.append(key, value as any);
         }
       }

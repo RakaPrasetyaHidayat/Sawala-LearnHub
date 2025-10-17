@@ -93,30 +93,34 @@ export function ResourcesForm() {
 
       // Build payload (FormData when file present)
       let payload: Record<string, any> | FormData = {};
+      const normalizedTitle = resourcesData.title.trim();
+      const normalizedDescription = resourcesData.description.trim();
+      const normalizedUrl = resourcesData.url.trim();
+      const normalizedType = resourcesData.type;
+
+      const basePayload: Record<string, any> = {
+        title: normalizedTitle,
+        name: normalizedTitle,
+        resource_title: normalizedTitle,
+        resourceName: normalizedTitle,
+        resource_name: normalizedTitle,
+        description: normalizedDescription,
+        desc: normalizedDescription,
+        resource_description: normalizedDescription,
+        url: normalizedUrl,
+        link: normalizedUrl,
+        resource_url: normalizedUrl,
+        type: normalizedType,
+        resource_type: normalizedType,
+      };
       if (resourcesData.file) {
-        const formData = new FormData();
-        formData.append("title", resourcesData.title.trim());
-        formData.append("description", resourcesData.description.trim());
-        formData.append("url", resourcesData.url.trim());
-        formData.append("type", resourcesData.type);
-        formData.append("file", resourcesData.file);
-        if (divisionId) formData.append("division_id", divisionId);
-        if (year) {
-          const yearNum = Number(year);
-          formData.append("year", Number.isFinite(yearNum) ? String(yearNum) : year);
-        }
-        payload = formData;
-      } else {
-        const json: Record<string, any> = {
-          title: resourcesData.title.trim(),
-          description: resourcesData.description.trim(),
-          url: resourcesData.url.trim(),
-          type: resourcesData.type,
-        };
-        if (divisionId) json.division_id = divisionId;
-        if (year) json.year = Number.isFinite(Number(year)) ? Number(year) : year;
-        payload = json;
+        basePayload.file_name = resourcesData.file.name;
+        basePayload.fileSize = resourcesData.file.size;
       }
+      if (divisionId) basePayload.division_id = divisionId;
+      if (year)
+        basePayload.year = Number.isFinite(Number(year)) ? Number(year) : year;
+      payload = basePayload;
 
       // Attempt create with one retry for transient errors
       let lastErr: any = null;

@@ -1,4 +1,4 @@
-import { apiFetcher, getAuthToken } from "./fetcher";
+import { apiFetcher } from "./fetcher";
 import { apiClient } from "./api";
 import { mockUsers, mockMembers } from "./mockDataFallback";
 import { DivisionService } from "./division";
@@ -67,7 +67,7 @@ function normalizeMembers(payload: any): Member[] {
       (typeof u?.email === "string" ? u.email.split("@")[0] : "User"),
     full_name: u?.full_name ?? u?.name,
     // Prefer explicit division field from API
-    division: u?.division ?? u?.division_id ?? u?.role ?? "",
+    division: u?.division ?? u?.division_name ?? u?.role ?? "",
     // Map angkatan; fallback to channel_year if relevant
     angkatan: u?.angkatan ?? u?.channel_year,
     // Use provided school_name first
@@ -211,26 +211,11 @@ export const updateUserStatus = async (
   status: string
 ) => {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://learnhubbackenddev.vercel.app";
-    const absoluteUrl = `${baseUrl}/api/users/${userId}/status`;
-    console.log("Updating user status at absolute URL:", absoluteUrl, "with body:", { status });
-
-    try {
-      // Use apiFetcher so Authorization header and errors are handled consistently
-      return await apiFetcher<any>(absoluteUrl, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-    } catch (err) {
-      console.warn("updateUserStatus absolute endpoint failed, falling back to pending path:", err);
-      const fallbackUrl = `${baseUrl}/api/users/pending/${userId}/status`;
-      return await apiFetcher<any>(fallbackUrl, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-    }
+    return await apiFetcher<any>(`/api/users/${userId}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
   } catch (error) {
     console.error("Failed to update user status:", error);
     throw error;

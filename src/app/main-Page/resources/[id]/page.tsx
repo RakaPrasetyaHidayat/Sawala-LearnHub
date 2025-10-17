@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, ThumbsUp, FileText, ExternalLink, Download } from 'lucide-react'
+import { getAuthToken } from '@/services/fetcher'
 
 // Types
 type Resource = {
@@ -29,15 +30,75 @@ export default function ResourceDetailPage() {
   useEffect(() => {
     const fetchResource = async () => {
       try {
-        const res = await fetch('/api/resources', { cache: 'no-store' })
+        const token = getAuthToken()
+        const res = await fetch('/api/resources', {
+          cache: 'no-store',
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        })
         const contentType = res.headers.get('content-type') || ''
-        const data = contentType.includes('application/json') ? await res.json().catch(() => []) : []
-        const arr = Array.isArray(data) ? (data as unknown[]) : []
-        const found = arr.find((r): r is Resource => {
-          if (typeof r !== 'object' || r === null) return false
-          const obj = r as { id?: unknown }
-          return typeof obj.id === 'string' && obj.id === params.id
-        }) || null
+        const raw = contentType.includes('application/json') ? await res.json().catch(() => null) : null
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray((raw as any)?.data?.resources)
+          ? (raw as any).data.resources
+          : Array.isArray((raw as any)?.resources)
+          ? (raw as any).resources
+          : Array.isArray((raw as any)?.data)
+          ? (raw as any).data
+          : []
+        const foundData = (list as any[]).find((item) => {
+          if (!item || typeof item !== 'object') return false
+          const identifier = (item as any).id ?? (item as any)._id ?? (item as any).uuid
+          if (!identifier) return false
+          const value = typeof identifier === 'string' ? identifier : identifier?.toString?.()
+          return value === params.id
+        })
+        const found: Resource | null = foundData
+          ? {
+              id: (() => {
+                const identifier = (foundData as any).id ?? (foundData as any)._id ?? (foundData as any).uuid ?? ''
+                return typeof identifier === 'string' ? identifier : identifier?.toString?.() ?? ''
+              })(),
+              title:
+                (foundData as any).title ||
+                (foundData as any).name ||
+                'Untitled',
+              author:
+                (foundData as any).created_by ||
+                (foundData as any).author ||
+                'Anonymous',
+              role: (foundData as any).type || (foundData as any).category,
+              description:
+                (foundData as any).description ||
+                (foundData as any).desc ||
+                '',
+              date: (() => {
+                const created = (foundData as any).created_at
+                if (created) {
+                  const parsed = new Date(created)
+                  if (!Number.isNaN(parsed.valueOf())) return parsed.toLocaleDateString()
+                }
+                return (foundData as any).date || ''
+              })(),
+              likes:
+                (foundData as any).likes ??
+                (foundData as any).like_count ??
+                0,
+              type: (foundData as any).type || (foundData as any).resource_type,
+              link:
+                (foundData as any).link ??
+                (foundData as any).url ??
+                null,
+              fileName:
+                (foundData as any).fileName ??
+                (foundData as any).file_name ??
+                null,
+              fileUrl:
+                (foundData as any).fileUrl ??
+                (foundData as any).file_url ??
+                null,
+            }
+          : null
         setResource(found)
       } catch {
         setResource(null)
@@ -108,13 +169,6 @@ export default function ResourceDetailPage() {
         </h1>
 
         {/* Metadata */}
-        <div className="flex items-center mb-6">
-          <span className="text-sm pr-3 text-gray-600">{resource.date}</span>
-          <div className="flex items-center gap-1 text-blue-600">
-            <ThumbsUp className="h-4 w-4" />
-            <span className="text-sm font-medium">{resource.likes}</span>
-          </div>
-        </div>
 
         {/* Author Info */}
         <div className="mb-6">
@@ -126,6 +180,13 @@ export default function ResourceDetailPage() {
           </p>
         </div>
 
+        <div className="flex items-center mb-6">
+          <span className="text-sm pr-3 text-gray-600">{resource.date}</span>
+          <div className="flex items-center gap-1 text-blue-600">
+            <ThumbsUp className="h-4 w-4" />
+            <span className="text-sm font-medium">{resource.likes}</span>
+          </div>
+        </div>
         {/* Description */}
         <div className="mb-6">
           <p className="text-gray-700 leading-relaxed">
