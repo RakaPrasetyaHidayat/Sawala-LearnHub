@@ -1,5 +1,20 @@
 import { apiFetcher } from "./fetcher";
 
+function normalizeStatus(status: string): string {
+  if (!status && status !== "") return "";
+  const s = String(status).trim();
+  const low = s.toLowerCase();
+  if (["approved", "approve", "active", "ok", "accepted"].includes(low)) return "APPROVED";
+  if (["rejected", "reject", "inactive"].includes(low)) return "REJECTED";
+  if (["pending", "pend", "waiting"].includes(low)) return "PENDING";
+  // If already uppercase enum, return as-is
+  const up = s.toUpperCase();
+  if (["PENDING", "APPROVED", "REJECTED"].includes(up)) return up;
+  // Fallback: return uppercased string and log warning
+  console.warn("normalizeStatus: unknown status value, sending uppercased fallback:", s);
+  return up;
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://learnhubbackenddev.vercel.app";
 
 // Use the authenticated fetcher instead of custom apiRequest
@@ -34,28 +49,77 @@ export async function getPendingUsers() {
 
 export async function updateUserStatus(
   userId: string | number,
-  status: string
+  status: string,
+  role: string = "ADMIN"
 ) {
-  // Prefer backend canonical endpoint /api/users/:id/status (absolute),
-  // fall back to older /api/users/pending/:id/status if needed.
-  try {
-    return await apiFetcher<any>(`${API_BASE}/api/users/${userId}/status`, {
-      method: "PUT",
-      body: JSON.stringify({ status }),
-    });
-  } catch (err) {
-    console.warn("apiClients.updateUserStatus: absolute endpoint failed, falling back:", err);
-    return apiFetcher<any>(`/api/users/pending/${userId}/status`, {
-      method: "PUT",
-      body: JSON.stringify({ status }),
-    });
+  // Try multiple candidate endpoints in order to support different backend shapes.
+  const normalizedStatus = normalizeStatus(status);
+  const bodyPayload = { status: normalizedStatus, role };
+  const candidates = [
+    // Absolute canonical
+    `${API_BASE}/api/users/${userId}/status`,
+    // Some backends expect /users/:id (no /status)
+    `${API_BASE}/users/${userId}`,
+    `${API_BASE}/api/users/${userId}`,
+    // Legacy pending path
+    `${API_BASE}/api/users/pending/${userId}/status`,
+    // Relative fallbacks (will hit Next.js proxy)
+    `/api/users/${userId}/status`,
+    `/users/${userId}`,
+    `/api/users/pending/${userId}/status`,
+  ];
+
+  let lastErr: any = null;
+  for (const url of candidates) {
+    try {
+      const res = await apiFetcher<any>(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyPayload),
+      });
+      return res;
+    } catch (err: any) {
+      lastErr = err;
+      // If error indicates 404/405, try next candidate. For other errors, rethrow.
+      const msg = String(err?.message || "").toLowerCase();
+      if (msg.includes("404") || msg.includes("not found") || msg.includes("method not allowed") || msg.includes("cannot patch") || msg.includes("cannot put")) {
+        console.warn(`updateUserStatus candidate ${url} failed, trying next:`, err?.message || err);
+        continue;
+      }
+      // For authentication errors or other unexpected errors, rethrow to be handled by caller.
+      throw err;
+    }
   }
+
+  // If none succeeded, throw the last error
+  throw lastErr || new Error("Failed to update user status: no candidate succeeded");
 }
 
 export async function deleteUser(userId: string | number) {
-  return apiFetcher<any>(`/api/users/pending/${userId}`, {
-    method: "DELETE",
-  });
+  const candidates = [
+    `${API_BASE}/api/users/${userId}`,
+    `${API_BASE}/users/${userId}`,
+    `/api/users/${userId}`,
+    `/users/${userId}`,
+    `/api/users/pending/${userId}`,
+  ];
+
+  let lastErr: any = null;
+  for (const url of candidates) {
+    try {
+      return await apiFetcher<any>(url, { method: "DELETE" });
+    } catch (err: any) {
+      lastErr = err;
+      const msg = String(err?.message || "").toLowerCase();
+      if (msg.includes("404") || msg.includes("not found") || msg.includes("method not allowed")) {
+        // try next candidate
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw lastErr || new Error("Failed to delete user: no candidate succeeded");
 }
 
 // Authentication functions

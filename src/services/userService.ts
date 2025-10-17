@@ -208,29 +208,57 @@ export async function fetchPendingUsers(): Promise<AdminUser[]> {
 // Function to update a user's status (approve/reject)
 export const updateUserStatus = async (
   userId: string,
-  status: string
+  status: string,
+  role: string = "ADMIN"
 ) => {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://learnhubbackenddev.vercel.app";
-    const absoluteUrl = `${baseUrl}/api/users/${userId}/status`;
-    console.log("Updating user status at absolute URL:", absoluteUrl, "with body:", { status });
+    // Normalize status to backend enum
+    const normalizeStatus = (s: string) => {
+      const str = String(s || "").trim();
+      const low = str.toLowerCase();
+      if (["approved", "approve", "active", "ok", "accepted"].includes(low)) return "APPROVED";
+      if (["rejected", "reject", "inactive"].includes(low)) return "REJECTED";
+      if (["pending", "pend", "waiting"].includes(low)) return "PENDING";
+      const up = str.toUpperCase();
+      if (["PENDING", "APPROVED", "REJECTED"].includes(up)) return up;
+      return up;
+    };
 
-    try {
-      // Use apiFetcher so Authorization header and errors are handled consistently
-      return await apiFetcher<any>(absoluteUrl, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-    } catch (err) {
-      console.warn("updateUserStatus absolute endpoint failed, falling back to pending path:", err);
-      const fallbackUrl = `${baseUrl}/api/users/pending/${userId}/status`;
-      return await apiFetcher<any>(fallbackUrl, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+    const payload = { status: normalizeStatus(status), role };
+    console.log("Updating user status, trying multiple candidates with payload:", payload);
+
+    const candidates = [
+      `${baseUrl}/api/users/${userId}/status`,
+      `${baseUrl}/users/${userId}`,
+      `${baseUrl}/api/users/${userId}`,
+      `${baseUrl}/api/users/pending/${userId}/status`,
+      `/api/users/${userId}/status`,
+      `/users/${userId}`,
+      `/api/users/pending/${userId}/status`,
+    ];
+
+    let lastErr: any = null;
+    for (const url of candidates) {
+      try {
+        const res = await apiFetcher<any>(url, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        return res;
+      } catch (err: any) {
+        lastErr = err;
+        const msg = String(err?.message || "").toLowerCase();
+        if (msg.includes("404") || msg.includes("not found") || msg.includes("cannot patch") || msg.includes("method not allowed")) {
+          console.warn(`updateUserStatus candidate ${url} failed, trying next:`, err?.message || err);
+          continue;
+        }
+        throw err;
+      }
     }
+
+    throw lastErr || new Error("Failed to update user status: no candidate succeeded");
   } catch (error) {
     console.error("Failed to update user status:", error);
     throw error;
